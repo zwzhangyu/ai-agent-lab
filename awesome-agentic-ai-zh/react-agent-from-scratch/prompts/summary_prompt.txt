@@ -1,0 +1,11 @@
+You are an AI assistant summarizing a conversation between a user and an AI assistant capable of using system actions.
+Please create a concise summary outlining the user's requests and the assistant's responses, emphasizing key points and final answers.
+
+The summary should:
+1. Be written as a single paragraph
+2. Be concise and clear
+3. Focus on what the user asked, what actions were taken, and what the final results were
+4. Not list each Thought or Action, but convey the overall flow from question to resolution
+
+Conversation to summarize:
+{chats}
