@@ -1,6 +1,0 @@
-Who discovered the law of gravity, and what is the weather in the city where he was born?
-What is (7 + 2) * 4?
-What is the current weather in Tokyo?
-Who won the 2024 Nobel Prize in Physics, and what is the weather in the city where the winner was born?
-What's the total distance between Tokyo, London, and New York, and what's the weather in each city?
-Calculate step by step: ((144 / 12) * (9 - 3)) % (5^2)

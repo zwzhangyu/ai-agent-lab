@@ -1,9 +1,13 @@
 import os
+from pathlib import Path
 
 import requests
 from dotenv import load_dotenv
 
 from tools.base_tool import BaseTool
+
+# Ensure .env is loaded regardless of entry point
+load_dotenv(Path(__file__).resolve().parents[3] / '.env', override=True)
 
 
 class WeatherTool(BaseTool):
@@ -13,17 +17,17 @@ class WeatherTool(BaseTool):
         super().__init__()
         self.name = "weather"
         self.description = "Fetches current weather conditions for a specified city."
-        self.api_key = os.getenv("OPENWEATHER_API_KEY", "")
         self.base_url = "https://api.openweathermap.org/data/2.5/weather"
 
     def run(self, query):
         if not query or not query.strip():
             return "Error: City name cannot be empty."
 
-        if not self.api_key:
+        api_key = os.getenv("OPENWEATHER_API_KEY", "")
+        if not api_key:
             return "Error: OPENWEATHER_API_KEY not configured."
 
-        url = f"{self.base_url}?q={query}&appid={self.api_key}&units=metric"
+        url = f"{self.base_url}?q={query}&appid={api_key}&units=metric"
         try:
             response = requests.get(url, timeout=5)
             if response.status_code != 200:
