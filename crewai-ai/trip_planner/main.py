@@ -10,16 +10,39 @@
     python main.py --origin 北京 --cities "东京,大阪" \\
         --date-range "10.1-10.7" --interests 美食,购物
 
-对照原示例（main.py）：整体流程一致，额外把结果保存成 Markdown 文件，
-方便查看。
+对照原示例（main.py）：整体流程一致，额外把 3 个 Agent 的产出分别
+保存到 output/latest/ 下，方便回溯每个 Agent 到底写了什么。
 """
 
 import argparse
+import json
+import time
+from pathlib import Path
 
 from crewai import Crew
 
 from trip_agents import TripAgents
 from trip_tasks import TripTasks
+
+# 3 个 Agent 的产出文件名（与 trip_tasks.py 中的 Task 顺序一致）
+STEP_FILENAMES = [
+    "step1_city_selection.md",   # 城市选择专家
+    "step2_local_guide.md",       # 当地城市专家
+    "step3_trip_plan.md",         # 金牌旅行管家（最终行程）
+]
+
+OUTPUT_DIR = Path(__file__).resolve().parent / "output"
+
+
+def save_step_output(output_dir: Path, index: int, text: str) -> Path:
+    """把第 index 个 Task 的产出写入 output_dir/stepN_*.md。"""
+    output_dir.mkdir(parents=True, exist_ok=True)
+    if 0 <= index < len(STEP_FILENAMES):
+        path = output_dir / STEP_FILENAMES[index]
+    else:
+        path = output_dir / f"extra_step{index + 1}.md"
+    path.write_text(text, encoding="utf-8")
+    return path
 
 
 class TripCrew:
@@ -30,7 +53,13 @@ class TripCrew:
         self.interests = interests
         self.date_range = date_range
 
-    def run(self):
+    def run(self, task_callback=None, verbose=True):
+        """组建并启动 Crew。
+
+        :param task_callback: 可选，每完成一个 Task 就会被回调，
+                              供上层（如 Flask 服务）推送实时进度。
+        :param verbose: 是否打印 CrewAI 的详细日志。
+        """
         agents = TripAgents()
         tasks = TripTasks()
 
@@ -65,7 +94,8 @@ class TripCrew:
                 travel_concierge_agent,
             ],
             tasks=[identify_task, gather_task, plan_task],
-            verbose=True,
+            verbose=verbose,
+            task_callback=task_callback,
         )
 
         result = crew.kickoff()
@@ -108,14 +138,44 @@ if __name__ == "__main__":
     date_range = _ask("你计划出行的日期范围是？", args.date_range)
     interests = _ask("你有哪些主要的兴趣爱好？（例如：美食、历史、自然徒步）", args.interests)
 
+    # CLI 模式统一写到 output/latest/，每次运行会覆盖上一轮
+    run_dir = OUTPUT_DIR / "latest"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    step_counter = {"n": 0}
+
+    def _save_step(output):
+        raw = getattr(output, "raw", None) or str(output)
+        idx = step_counter["n"]
+        path = save_step_output(run_dir, idx, raw)
+        step_counter["n"] += 1
+        print(f"✅ 已保存 {path.relative_to(OUTPUT_DIR.parent)}")
+
     trip_crew = TripCrew(location, cities, date_range, interests)
-    result = trip_crew.run()
+    result = trip_crew.run(task_callback=_save_step)
 
     print("\n\n########################")
     print("## 这是为你定制的旅行计划")
     print("########################\n")
     print(result)
 
-    with open("trip_plan.md", "w", encoding="utf-8") as f:
-        f.write(str(result))
-    print("\n✅ 行程已保存到 trip_plan.md")
+    # 兵底：若某个 Task 未触发回调（例如早期就失败），
+    # 确保至少最终结果写入 step3_trip_plan.md
+    if step_counter["n"] < len(STEP_FILENAMES):
+        save_step_output(run_dir, len(STEP_FILENAMES) - 1, str(result))
+
+    meta = {
+        "mode": "cli",
+        "origin": location,
+        "cities": cities,
+        "date_range": date_range,
+        "interests": interests,
+        "saved_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+    }
+    (run_dir / "meta.json").write_text(
+        json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    print(f"\n✅ 全部产出已保存到 {run_dir}/")
+    print("   - step1_city_selection.md  (城市选择专家)")
+    print("   - step2_local_guide.md     (当地城市专家)")
+    print("   - step3_trip_plan.md       (金牌旅行管家)")
+    print("   - meta.json                (本次输入参数)")

@@ -2,3 +2,5 @@ __pycache__/
 *.pyc
 trip_plan.md
 .env
+.venv/
+venv/

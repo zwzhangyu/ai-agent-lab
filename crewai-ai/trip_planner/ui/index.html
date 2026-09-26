@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TripMind · AI 旅行规划智能体</title>
+  <!-- Markdown 渲染：CrewAI 最终输出是 Markdown，直接展示原文不友好 -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --card: rgba(255,255,255,.92);
+      --text: #172033;
+      --muted: #748096;
+      --line: #e7eaf0;
+      --primary: #5b6cff;
+      --primary-dark: #4354e8;
+      --soft: #eef1ff;
+      --success: #22a06b;
+      --danger: #b9404a;
+      --shadow: 0 18px 50px rgba(28, 39, 70, .08);
+      --radius: 22px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 10% 0%, #e9edff 0, transparent 26%),
+        radial-gradient(circle at 100% 100%, #eafaf3 0, transparent 24%),
+        var(--bg);
+    }
+
+    .app {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 40px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 22px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .brand { display: flex; align-items: center; gap: 12px; }
+
+    .logo {
+      width: 42px; height: 42px;
+      border-radius: 14px;
+      display: grid; place-items: center;
+      color: white; font-size: 21px;
+      background: linear-gradient(135deg, var(--primary), #8d6cff);
+      box-shadow: 0 10px 24px rgba(91,108,255,.28);
+    }
+
+    .brand h1 { font-size: 20px; margin: 0; letter-spacing: -.4px; }
+    .brand p { margin: 3px 0 0; color: var(--muted); font-size: 13px; }
+
+    .status {
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      color: var(--muted);
+      background: #f3f5f8;
+      border: 1px solid var(--line);
+      transition: .2s ease;
+    }
+    .status.ok { color: var(--success); background: #eaf8f1; border-color: #d5f0e3; }
+    .status.err { color: var(--danger); background: #fff4f5; border-color: #ffd8dc; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid rgba(255,255,255,.8);
+      box-shadow: var(--shadow);
+      border-radius: var(--radius);
+      backdrop-filter: blur(12px);
+    }
+
+    .form-panel { padding: 24px; position: sticky; top: 18px; }
+    .form-panel h2, .result-panel h2 { margin: 0; font-size: 18px; }
+
+    .sub {
+      margin: 7px 0 22px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .field { margin-bottom: 16px; }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 650;
+      margin-bottom: 8px;
+    }
+
+    input, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      outline: none;
+      border-radius: 14px;
+      padding: 12px 13px;
+      background: #fbfcff;
+      color: var(--text);
+      font: inherit;
+      transition: .2s ease;
+    }
+
+    textarea { min-height: 92px; resize: vertical; line-height: 1.6; }
+
+    input:focus, textarea:focus {
+      border-color: #aeb7ff;
+      background: white;
+      box-shadow: 0 0 0 4px rgba(91,108,255,.09);
+    }
+
+    .hint { color: var(--muted); font-size: 11px; margin-top: 6px; }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+
+    .chip {
+      cursor: pointer;
+      border: 1px solid var(--line);
+      background: white;
+      color: #59657a;
+      border-radius: 999px;
+      padding: 7px 10px;
+      font-size: 12px;
+      transition: .2s ease;
+    }
+    .chip:hover {
+      color: var(--primary);
+      border-color: #c9ceff;
+      background: var(--soft);
+    }
+
+    .submit {
+      width: 100%;
+      border: 0;
+      border-radius: 14px;
+      padding: 13px 16px;
+      margin-top: 6px;
+      color: white;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--primary), #7a68ff);
+      box-shadow: 0 12px 24px rgba(91,108,255,.24);
+      transition: .2s ease;
+    }
+    .submit:hover { transform: translateY(-1px); }
+    .submit:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+
+    .result-panel { min-height: 650px; overflow: hidden; }
+
+    .result-head {
+      padding: 22px 26px 16px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      gap: 18px;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+    .result-head .meta { color: var(--muted); font-size: 12px; margin-top: 5px; }
+
+    .steps { display: flex; gap: 8px; flex-wrap: wrap; }
+    .step {
+      padding: 7px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      color: #8a93a5;
+      background: #f3f5f8;
+      border: 1px solid var(--line);
+      white-space: nowrap;
+      transition: .25s ease;
+    }
+    .step.active {
+      color: var(--primary);
+      background: var(--soft);
+      border-color: #ccd2ff;
+      box-shadow: 0 0 0 3px rgba(91,108,255,.08);
+    }
+    .step.done {
+      color: var(--success);
+      background: #ebf8f2;
+      border-color: #d4efe3;
+    }
+
+    .actions { display: flex; gap: 8px; }
+    .btn {
+      border: 1px solid var(--line);
+      background: white;
+      color: #4a566c;
+      border-radius: 10px;
+      padding: 7px 12px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: .2s ease;
+    }
+    .btn:hover:not(:disabled) {
+      color: var(--primary);
+      border-color: #c9ceff;
+      background: var(--soft);
+    }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+    .content { padding: 26px 28px 30px; }
+
+    .empty {
+      min-height: 480px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      color: var(--muted);
+    }
+    .empty-icon {
+      width: 74px; height: 74px;
+      border-radius: 24px;
+      display: grid; place-items: center;
+      margin: 0 auto 16px;
+      font-size: 32px;
+      background: linear-gradient(135deg, #eef1ff, #f4edff);
+    }
+    .empty strong {
+      display: block;
+      color: #465067;
+      font-size: 16px;
+      margin-bottom: 7px;
+    }
+
+    .loading { display: none; padding: 4px 0 12px; }
+    .loader-line {
+      height: 7px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: #eef0f4;
+    }
+    .loader-line::after {
+      content: "";
+      display: block;
+      width: 35%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--primary), #9a6dff);
+      animation: move 1.25s infinite ease-in-out;
+    }
+    @keyframes move {
+      from { transform: translateX(-120%); }
+      to { transform: translateX(320%); }
+    }
+
+    .task-log {
+      margin-top: 16px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+      background: #fbfcff;
+    }
+    .task-log summary {
+      cursor: pointer;
+      padding: 12px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #4a566c;
+      list-style: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .task-log summary::-webkit-details-marker { display: none; }
+    .task-log summary::after {
+      content: "▾";
+      color: var(--muted);
+      transition: transform .2s ease;
+    }
+    .task-log[open] summary::after { transform: rotate(180deg); }
+    .task-log .log-body {
+      border-top: 1px solid var(--line);
+      padding: 14px 16px;
+      max-height: 300px;
+      overflow: auto;
+      font-size: 12.5px;
+      color: #4a566c;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: white;
+    }
+    .task-log .log-item + .log-item {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px dashed var(--line);
+    }
+    .task-log .log-title {
+      font-weight: 700;
+      color: var(--primary-dark);
+      margin-bottom: 4px;
+    }
+
+    .note { display: none; line-height: 1.8; font-size: 14.5px; }
+    .note h1, .note h2, .note h3, .note h4 { line-height: 1.35; margin-top: 1.4em; }
+    .note h1 { font-size: 24px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+    .note h2 { font-size: 19px; }
+    .note h3 { font-size: 16px; }
+    .note p { margin: .7em 0; }
+    .note ul, .note ol { padding-left: 1.4em; }
+    .note li { margin: .25em 0; }
+    .note code {
+      background: #f1f3f9;
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: .92em;
+      color: #3c4866;
+    }
+    .note pre {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 14px 16px;
+      border-radius: 12px;
+      overflow: auto;
+      font-size: 12.5px;
+      line-height: 1.6;
+    }
+    .note pre code { background: transparent; color: inherit; padding: 0; }
+    .note blockquote {
+      margin: .8em 0;
+      padding: .4em 1em;
+      border-left: 3px solid var(--primary);
+      background: var(--soft);
+      color: #404a63;
+      border-radius: 0 8px 8px 0;
+    }
+    .note table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: .8em 0;
+      font-size: 13px;
+    }
+    .note th, .note td {
+      border: 1px solid var(--line);
+      padding: 8px 10px;
+      text-align: left;
+    }
+    .note th { background: #f7f8fc; font-weight: 700; }
+    .note a { color: var(--primary-dark); }
+    .note hr { border: 0; border-top: 1px solid var(--line); margin: 1.4em 0; }
+
+    .error {
+      display: none;
+      padding: 14px 16px;
+      border: 1px solid #ffd8dc;
+      background: #fff4f5;
+      color: var(--danger);
+      border-radius: 14px;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 860px) {
+      .layout { grid-template-columns: 1fr; }
+      .form-panel { position: static; }
+      .steps { display: none; }
+      .result-panel { min-height: 520px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div class="brand">
+        <div class="logo">✈</div>
+        <div>
+          <h1>TripMind</h1>
+          <p>多智能体旅行规划助手 · CrewAI + DashScope</p>
+        </div>
+      </div>
+      <div class="status" id="serviceStatus">● 正在检测服务...</div>
+    </header>
+
+    <section class="layout">
+      <!-- 左侧：输入表单 -->
+      <aside class="panel form-panel">
+        <h2>开始规划旅程</h2>
+        <p class="sub">填写基本需求，三个旅行 Agent 会依次完成城市筛选、深度攻略和完整行程。全流程通常 3~8 分钟。</p>
+
+        <form id="tripForm">
+          <div class="field">
+            <label for="origin">出发地</label>
+            <input id="origin" name="origin" placeholder="例如：北京" required />
+          </div>
+
+          <div class="field">
+            <label for="cities">候选目的地</label>
+            <input id="cities" name="cities" placeholder="例如：东京, 大阪, 京都" required />
+            <div class="hint">多个城市请使用逗号分隔</div>
+          </div>
+
+          <div class="field">
+            <label for="date_range">旅行日期</label>
+            <input id="date_range" name="date_range" placeholder="例如：2026-10-01 至 2026-10-07" required />
+          </div>
+
+          <div class="field">
+            <label for="interests">旅行偏好</label>
+            <textarea id="interests" name="interests" placeholder="例如：喜欢当地美食、历史文化、自然风景，希望节奏不要太赶"></textarea>
+            <div class="chips">
+              <button type="button" class="chip">美食</button>
+              <button type="button" class="chip">历史文化</button>
+              <button type="button" class="chip">自然风景</button>
+              <button type="button" class="chip">购物</button>
+              <button type="button" class="chip">亲子</button>
+              <button type="button" class="chip">摄影</button>
+            </div>
+          </div>
+
+          <button class="submit" id="submitBtn" type="submit">✨ 生成我的旅行笔记</button>
+        </form>
+      </aside>
+
+      <!-- 右侧：结果 -->
+      <section class="panel result-panel">
+        <div class="result-head">
+          <div>
+            <h2>AI 旅行笔记</h2>
+            <div class="meta" id="resultMeta">等待生成</div>
+          </div>
+          <div class="steps" aria-live="polite">
+            <span class="step" data-step="0">1 城市筛选</span>
+            <span class="step" data-step="1">2 深度攻略</span>
+            <span class="step" data-step="2">3 行程生成</span>
+          </div>
+          <div class="actions">
+            <button type="button" class="btn" id="copyBtn" disabled>复制</button>
+            <button type="button" class="btn" id="downloadBtn" disabled>下载 .md</button>
+          </div>
+        </div>
+
+        <div class="content">
+          <div class="loading" id="loading">
+            <div class="loader-line"></div>
+            <p class="sub" id="loadingText">旅行 Agent 正在开始工作...</p>
+
+            <details class="task-log" id="taskLog">
+              <summary>Agent 中间产出（每完成一步会追加）</summary>
+              <div class="log-body" id="taskLogBody">
+                <div class="log-item" style="color: var(--muted)">暂无内容，等待第一个 Task 完成...</div>
+              </div>
+            </details>
+          </div>
+
+          <div class="error" id="errorBox"></div>
+
+          <div class="empty" id="emptyState">
+            <div>
+              <div class="empty-icon">🗺️</div>
+              <strong>你的旅行计划会出现在这里</strong>
+              <div>填写左侧信息，让 AI 为你整理一份完整旅行笔记。</div>
+            </div>
+          </div>
+
+          <article class="note" id="note"></article>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    // ---------- DOM 引用 ----------
+    const form = document.getElementById("tripForm");
+    const interests = document.getElementById("interests");
+    const chips = document.querySelectorAll(".chip");
+    const submitBtn = document.getElementById("submitBtn");
+    const loading = document.getElementById("loading");
+    const loadingText = document.getElementById("loadingText");
+    const emptyState = document.getElementById("emptyState");
+    const note = document.getElementById("note");
+    const resultMeta = document.getElementById("resultMeta");
+    const errorBox = document.getElementById("errorBox");
+    const serviceStatus = document.getElementById("serviceStatus");
+    const copyBtn = document.getElementById("copyBtn");
+    const downloadBtn = document.getElementById("downloadBtn");
+    const taskLog = document.getElementById("taskLog");
+    const taskLogBody = document.getElementById("taskLogBody");
+    const stepEls = Array.from(document.querySelectorAll(".step"));
+
+    const LOADING_TEXTS = [
+      "城市选择专家正在比较天气、活动与成本...",
+      "当地城市专家正在搜索景点、美食与本地玩法...",
+      "金牌旅行管家正在整理逐日行程、预算与行李建议..."
+    ];
+
+    let currentJobId = null;
+    let pollTimer = null;
+    let elapsedTimer = null;
+    let startTs = 0;
+
+    // ---------- 快捷标签 ----------
+    chips.forEach(chip => {
+      chip.addEventListener("click", () => {
+        const value = chip.textContent.trim();
+        if (!interests.value.includes(value)) {
+          interests.value = interests.value.trim()
+            ? interests.value.trim() + "、" + value
+            : value;
+        }
+      });
+    });
+
+    // ---------- 服务健康检查 ----------
+    async function checkHealth() {
+      try {
+        const res = await fetch("/api/health");
+        const data = await res.json();
+        if (data.success && data.dashscope_key_configured) {
+          serviceStatus.textContent = `● Agent 服务就绪 · ${data.model || ""}`;
+          serviceStatus.className = "status ok";
+        } else if (data.success) {
+          serviceStatus.textContent = "● 服务在线，但缺少 DASHSCOPE_API_KEY";
+          serviceStatus.className = "status err";
+        } else {
+          throw new Error("unknown");
+        }
+      } catch {
+        serviceStatus.textContent = "● 服务未连接";
+        serviceStatus.className = "status err";
+      }
+    }
+    checkHealth();
+
+    // ---------- 步骤状态渲染 ----------
+    function renderSteps(steps) {
+      stepEls.forEach((el, i) => {
+        const s = steps && steps[i];
+        el.classList.remove("active", "done");
+        if (!s) return;
+        if (s.status === "done") el.classList.add("done");
+        else if (s.status === "active") el.classList.add("active");
+      });
+      const activeIdx = steps ? steps.findIndex(s => s.status === "active") : -1;
+      const doneCount = steps ? steps.filter(s => s.status === "done").length : 0;
+      let idx = activeIdx >= 0 ? activeIdx : Math.max(0, doneCount - 1);
+      loadingText.textContent = LOADING_TEXTS[idx] || LOADING_TEXTS[LOADING_TEXTS.length - 1];
+    }
+
+    function renderTaskLog(steps) {
+      const doneSteps = (steps || []).filter(s => s.status === "done" && s.output);
+      if (doneSteps.length === 0) return;
+      taskLogBody.innerHTML = "";
+      doneSteps.forEach((s, i) => {
+        const div = document.createElement("div");
+        div.className = "log-item";
+        const title = document.createElement("div");
+        title.className = "log-title";
+        title.textContent = `Step ${i + 1} · ${s.name}`;
+        const body = document.createElement("div");
+        body.textContent = s.output;
+        div.appendChild(title);
+        div.appendChild(body);
+        taskLogBody.appendChild(div);
+      });
+    }
+
+    function formatElapsed(ms) {
+      const s = Math.floor(ms / 1000);
+      const m = Math.floor(s / 60);
+      return m > 0 ? `${m} 分 ${s % 60} 秒` : `${s} 秒`;
+    }
+
+    // ---------- 提交表单 ----------
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const payload = {
+        origin: document.getElementById("origin").value.trim(),
+        cities: document.getElementById("cities").value.trim(),
+        date_range: document.getElementById("date_range").value.trim(),
+        interests: interests.value.trim()
+      };
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "正在规划...";
+      errorBox.style.display = "none";
+      emptyState.style.display = "none";
+      note.style.display = "none";
+      note.innerHTML = "";
+      loading.style.display = "block";
+      copyBtn.disabled = true;
+      downloadBtn.disabled = true;
+      taskLogBody.innerHTML = '<div class="log-item" style="color: var(--muted)">暂无内容，等待第一个 Task 完成...</div>';
+      resultMeta.textContent = `${payload.origin} · ${payload.date_range}`;
+      renderSteps([{status: "active"}, {status: "pending"}, {status: "pending"}]);
+
+      startTs = Date.now();
+      elapsedTimer = setInterval(() => {
+        resultMeta.textContent = `${payload.origin} · ${payload.date_range} · 已用时 ${formatElapsed(Date.now() - startTs)}`;
+      }, 1000);
+
+      try {
+        const res = await fetch("/api/plan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.message || "创建任务失败");
+        }
+        currentJobId = data.job_id;
+        startPolling();
+      } catch (err) {
+        stopTimers();
+        showError(err.message);
+      }
+    });
+
+    // ---------- 轮询任务状态 ----------
+    function startPolling() {
+      stopPolling();
+      pollTimer = setInterval(pollOnce, 2000);
+      pollOnce();
+    }
+
+    function stopPolling() {
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    }
+
+    function stopTimers() {
+      stopPolling();
+      if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null; }
+    }
+
+    async function pollOnce() {
+      if (!currentJobId) return;
+      try {
+        const res = await fetch(`/api/plan/${currentJobId}`);
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.message || "查询状态失败");
+
+        const job = data.job;
+        renderSteps(job.steps);
+        renderTaskLog(job.steps);
+
+        if (job.status === "done") {
+          stopTimers();
+          const elapsed = formatElapsed(Date.now() - startTs);
+          resultMeta.textContent = `已生成 · 用时 ${elapsed} · AI 多智能体协作完成`;
+          renderMarkdown(job.result || "");
+          loading.style.display = "none";
+          note.style.display = "block";
+          copyBtn.disabled = false;
+          downloadBtn.disabled = false;
+          submitBtn.disabled = false;
+          submitBtn.textContent = "✨ 重新生成旅行笔记";
+        } else if (job.status === "error") {
+          stopTimers();
+          showError(job.error || "任务失败");
+        }
+      } catch (err) {
+        stopTimers();
+        showError(err.message);
+      }
+    }
+
+    function renderMarkdown(md) {
+      if (window.marked) {
+        // marked v5+ 用 marked.parse；老版本是 marked()
+        const parse = window.marked.parse || window.marked;
+        note.innerHTML = parse(md || "");
+      } else {
+        // CDN 加载失败时的降级：用 <pre> 展示原文
+        const pre = document.createElement("pre");
+        pre.style.whiteSpace = "pre-wrap";
+        pre.textContent = md || "";
+        note.innerHTML = "";
+        note.appendChild(pre);
+      }
+    }
+
+    function showError(msg) {
+      loading.style.display = "none";
+      errorBox.textContent = "生成失败：" + msg;
+      errorBox.style.display = "block";
+      resultMeta.textContent = "生成失败";
+      submitBtn.disabled = false;
+      submitBtn.textContent = "✨ 重新生成旅行笔记";
+    }
+
+    // ---------- 结果操作 ----------
+    copyBtn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(note.innerText);
+        copyBtn.textContent = "已复制 ✓";
+        setTimeout(() => (copyBtn.textContent = "复制"), 1600);
+      } catch {
+        copyBtn.textContent = "复制失败";
+        setTimeout(() => (copyBtn.textContent = "复制"), 1600);
+      }
+    });
+
+    downloadBtn.addEventListener("click", () => {
+      if (!currentJobId) return;
+      window.location.href = `/api/plan/${currentJobId}/md`;
+    });
+  </script>
+</body>
+</html>

@@ -13,7 +13,7 @@ from crewai import Task
 class TripTasks:
 
     def identify_task(self, agent, origin, cities, interests, range):
-        """选定最合适的城市。"""
+        """从候选城市中选最佳目的地。"""
         return Task(
             description=dedent(f"""
                 分析并从候选城市中，为本次旅行选出最合适的城市，
@@ -35,7 +35,7 @@ class TripTasks:
         )
 
     def gather_task(self, agent, origin, interests, range):
-        """收集目的地的深度攻略。"""
+        """深入研究这个城市。"""
         return Task(
             description=dedent(f"""
                 作为这座城市的当地专家，你要为想要拥有完美旅程的旅行者
