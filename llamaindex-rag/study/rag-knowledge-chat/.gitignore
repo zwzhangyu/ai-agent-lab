@@ -1,0 +1,10 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+
+data/uploads/*
+!data/uploads/.gitkeep
+
+# 运行时数据（向量库、文件清单）：仅本地保存，不上传 git
+storage/

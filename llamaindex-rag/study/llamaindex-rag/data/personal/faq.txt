@@ -1,0 +1,13 @@
+个人知识库示例 FAQ
+
+Q: 学习 RAG 时最先应该理解什么？
+A: 最先理解 Document、Chunk/Node、Embedding、Retrieval、Context 和 LLM 生成之间的数据流。
+
+Q: Retriever 的职责是什么？
+A: Retriever 负责从知识库中找出与问题最相关的 Node，它本身通常不负责生成最终自然语言答案。
+
+Q: similarity_top_k 是什么？
+A: 它控制 Retriever 返回相似度排名前 K 个 Node。
+
+Q: 回答错误时应该先检查什么？
+A: 先检查 Retriever 是否找到了包含正确答案的 Node，再判断是否是 LLM 生成阶段的问题。

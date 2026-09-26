@@ -1,0 +1,18 @@
+# HomeRag 主题：浅色底 + 品牌蓝，对齐原型图配色
+[theme]
+base = "light"
+primaryColor = "#2563EB"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F5F7FB"
+textColor = "#0F172A"
+linkColor = "#2563EB"
+borderColor = "#E3E8F0"
+baseRadius = "large"
+buttonRadius = "large"
+showWidgetBorder = true
+showSidebarBorder = true
+
+[theme.sidebar]
+backgroundColor = "#F8FAFC"
+secondaryBackgroundColor = "#EFF3F9"
+borderColor = "#E3E8F0"

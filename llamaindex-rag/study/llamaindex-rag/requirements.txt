@@ -1,0 +1,6 @@
+llama-index-core==0.14.25
+llama-index-llms-dashscope
+llama-index-embeddings-dashscope
+llama-index-readers-file
+python-dotenv>=1.0.0
+pypdf>=5.0.0
